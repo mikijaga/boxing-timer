@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Boxing Timer",
-    "slug": "boxing-timer",
+    "name": "RoundMaster",
+    "slug": "roundmaster",
     "version": "1.0.0",
     "orientation": "default",
     "userInterfaceStyle": "dark",
@@ -11,17 +11,19 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourname.boxingtimer"
+      "bundleIdentifier": "com.mikijaga.roundmaster",
+      "buildNumber": "1",
+      "infoPlist": {
+        "CFBundleDisplayName": "RoundMaster"
+      }
     },
     "android": {
+      "package": "com.mikijaga.roundmaster",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A"
-      },
-      "package": "com.yourname.boxingtimer"
+      }
     },
-    "web": {},
-    "plugins": [
-      "expo-audio"
-    ]
+    "web": {}
   }
 }
