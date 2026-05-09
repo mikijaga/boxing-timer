@@ -87,7 +87,7 @@ export default function SetupScreen({ navigation }) {
       >
         {/* ── Header ── */}
         <View style={styles.topRow}>
-          <Text style={styles.appTitle}>🥊 Boxing Timer</Text>
+          <Text style={styles.appTitle}>🥊 RoundMaster</Text>
           <View style={styles.totalChip}>
             <Text style={styles.totalChipLabel}>TOTAL</Text>
             <Text style={styles.totalChipValue}>{formatDuration(totalSeconds)}</Text>
