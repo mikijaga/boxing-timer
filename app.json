@@ -14,8 +14,7 @@
       "bundleIdentifier": "com.mikijaga.roundmaster",
       "buildNumber": "1",
       "infoPlist": {
-        "CFBundleDisplayName": "RoundMaster",
-        "ITSAppUsesNonExemptEncryption": false
+        "CFBundleDisplayName": "RoundMaster"
       }
     },
     "android": {
@@ -23,20 +22,17 @@
       "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0A"
-      },
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
-    },
-    "web": {},
-    "extra": {
-      "eas": {
-        "projectId": "9e399fa5-8c2f-47c2-a0e1-889a66998de2"
       }
     },
+    "web": {},
     "plugins": [
-      "expo-audio"
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-9909776849077501/9197210654",
+          "iosAppId": "ca-app-pub-9909776849077501/9197210654"
+        }
+      ]
     ]
   }
 }

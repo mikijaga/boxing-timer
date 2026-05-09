@@ -12,6 +12,7 @@ import {
 import { COLORS } from '../utils/theme';
 import { formatDuration } from '../utils/format';
 import TimeControl from '../components/TimeControl';
+import AdBanner from '../components/AdBanner';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
 const DEFAULT_ROUND   = { roundDuration: 180, restDuration: 60 };
@@ -142,9 +143,7 @@ export default function SetupScreen({ navigation }) {
         </TouchableOpacity>
 
         {/* ── Ad placeholder ── */}
-        <View style={styles.adBanner}>
-          <Text style={styles.adText}>Advertisement</Text>
-        </View>
+        <AdBanner />
       </ScrollView>
 
       {/* ── Fixed footer start button ── */}

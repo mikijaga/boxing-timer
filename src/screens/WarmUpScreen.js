@@ -14,6 +14,7 @@ import ProgressRing from '../components/ProgressRing';
 import TimeControl from '../components/TimeControl';
 import { COLORS } from '../utils/theme';
 import { formatTime } from '../utils/format';
+import AdBanner from '../components/AdBanner';
 import { SoundManager } from '../utils/SoundManager';
 
 const { width } = Dimensions.get('window');
@@ -211,9 +212,7 @@ export default function WarmUpScreen() {
         )}
 
         {/* ── Ad banner ── */}
-        <View style={styles.adBanner}>
-          <Text style={styles.adText}>Advertisement</Text>
-        </View>
+        <AdBanner />
       </View>
     </SafeAreaView>
   );
