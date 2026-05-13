@@ -20,8 +20,8 @@ try {
 }
 
 // ── Replace these with your real Ad Unit IDs from AdMob ──────────────────────
-const ANDROID_AD_UNIT_ID = 'ca-app-pub-9909776849077501/9197210654';
-const IOS_AD_UNIT_ID     = 'ca-app-pub-9909776849077501/9197210654';
+const ANDROID_AD_UNIT_ID = 'ca-app-pub-9909776849077501~4950843888';
+const IOS_AD_UNIT_ID     = 'ca-app-pub-9909776849077501~4950843888';
 
 const adUnitId = __DEV__
   ? (adsAvailable ? TestIds?.BANNER : null)
