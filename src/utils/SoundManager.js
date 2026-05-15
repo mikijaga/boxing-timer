@@ -2,16 +2,15 @@
  * SoundManager.js
  *
  * Generates boxing bell and tap sounds entirely in JavaScript.
- * Uses expo-audio (SDK 54) ONLY — no expo-file-system needed.
- * Sounds are passed as base64 data URIs directly to the audio player.
+ * Uses expo-audio (SDK 54).
  *
- * This fixes the iOS build error:
- *   "value of type 'any EXFileSystemInterface' has no member 'getPathPermissions'"
+ * Key fix: Uses base64 data URIs instead of writing WAV files to disk.
+ * This avoids expo-file-system entirely — no iOS native build errors.
  */
 
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
-// ─── Pure-JS base64 encoder (Hermes-safe, no btoa) ───────────────────────────
+// ─── Pure-JS base64 encoder (no btoa — Hermes-safe) ──────────────────────────
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
@@ -39,25 +38,25 @@ function writeStr(view, offset, str) {
   }
 }
 
-function makeWavDataUri(hz, secs, decay, harmonics = [], vol = 0.92) {
+function makeWav(hz, secs, decay, harmonics = [], vol = 0.92) {
   const n      = Math.floor(SAMPLE_RATE * secs);
   const dataSz = n * 2;
   const buf    = new ArrayBuffer(44 + dataSz);
   const view   = new DataView(buf);
 
   writeStr(view,  0, 'RIFF');
-  view.setUint32(  4, 36 + dataSz,      true);
+  view.setUint32(  4, 36 + dataSz,     true);
   writeStr(view,  8, 'WAVE');
   writeStr(view, 12, 'fmt ');
-  view.setUint32( 16, 16,               true);
-  view.setUint16( 20,  1,               true);
-  view.setUint16( 22,  1,               true);
-  view.setUint32( 24, SAMPLE_RATE,      true);
-  view.setUint32( 28, SAMPLE_RATE * 2,  true);
-  view.setUint16( 32,  2,               true);
-  view.setUint16( 34, 16,               true);
+  view.setUint32( 16, 16,              true);
+  view.setUint16( 20,  1,              true);
+  view.setUint16( 22,  1,              true);
+  view.setUint32( 24, SAMPLE_RATE,     true);
+  view.setUint32( 28, SAMPLE_RATE * 2, true);
+  view.setUint16( 32,  2,              true);
+  view.setUint16( 34, 16,              true);
   writeStr(view, 36, 'data');
-  view.setUint32( 40, dataSz,           true);
+  view.setUint32( 40, dataSz,          true);
 
   const TWO_PI = 2 * Math.PI;
   for (let i = 0; i < n; i++) {
@@ -67,15 +66,15 @@ function makeWavDataUri(hz, secs, decay, harmonics = [], vol = 0.92) {
     for (const [mult, amp] of harmonics) {
       s += Math.sin(TWO_PI * hz * mult * t) * env * amp;
     }
-    view.setInt16(
-      44 + i * 2,
-      Math.round(Math.max(-1, Math.min(1, s)) * 32000),
-      true
-    );
+    view.setInt16(44 + i * 2, Math.round(Math.max(-1, Math.min(1, s)) * 32000), true);
   }
 
-  const base64 = uint8ToBase64(new Uint8Array(buf));
-  return `data:audio/wav;base64,${base64}`;
+  return new Uint8Array(buf);
+}
+
+// Convert WAV bytes to a base64 data URI — no file system needed
+function wavToDataUri(bytes) {
+  return `data:audio/wav;base64,${uint8ToBase64(bytes)}`;
 }
 
 // ─── SoundManager singleton ───────────────────────────────────────────────────
@@ -98,10 +97,15 @@ class SoundManagerClass {
         playThroughEarpieceAndroid: false,
       });
 
-      const bellUri = makeWavDataUri(880, 1.4, 2.5, [[2.756, 0.50], [5.404, 0.22]]);
+      // Boxing bell: 880 Hz + 2 overtones, 1.4 s
+      const bellUri = wavToDataUri(makeWav(
+        880, 1.4, 2.5,
+        [[2.756, 0.50], [5.404, 0.22]]
+      ));
       this._bell = createAudioPlayer({ uri: bellUri });
 
-      const tapUri = makeWavDataUri(1100, 0.11, 35);
+      // Warning tap: 1100 Hz, 0.11 s, fast decay
+      const tapUri = wavToDataUri(makeWav(1100, 0.11, 35));
       this._tap = createAudioPlayer({ uri: tapUri });
 
       this._ready = true;
@@ -115,12 +119,12 @@ class SoundManagerClass {
 
   async playBell() {
     if (!this._bell) { console.warn('[SoundManager] bell not ready'); return; }
-    try { this._bell.seekTo(0); this._bell.play(); } catch (e) { console.warn('[SoundManager] playBell error:', e); }
+    try { this._bell.seekTo(0); this._bell.play(); } catch (e) { console.warn('[SoundManager] playBell:', e); }
   }
 
   async playTap() {
     if (!this._tap) { console.warn('[SoundManager] tap not ready'); return; }
-    try { this._tap.seekTo(0); this._tap.play(); } catch (e) { console.warn('[SoundManager] playTap error:', e); }
+    try { this._tap.seekTo(0); this._tap.play(); } catch (e) { console.warn('[SoundManager] playTap:', e); }
   }
 
   playDoubleBell() {
@@ -133,8 +137,8 @@ class SoundManagerClass {
       if (this._bell) this._bell.remove();
       if (this._tap)  this._tap.remove();
     } catch {}
-    this._bell  = null;
-    this._tap   = null;
+    this._bell = null;
+    this._tap  = null;
     this._ready = false;
   }
 }
