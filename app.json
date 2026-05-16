@@ -4,6 +4,7 @@
     "slug": "roundmaster",
     "version": "1.0.0",
     "orientation": "default",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -12,7 +13,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mikijaga.roundmaster",
-      "buildNumber": "2",
+      "buildNumber": "3",
       "infoPlist": {
         "CFBundleDisplayName": "RoundMaster",
         "ITSAppUsesNonExemptEncryption": false
