@@ -10,19 +10,8 @@ export const PHASE = {
   DONE:   'done',
 };
 
-/**
- * config shape:
- * {
- *   roundConfigs: [{ roundDuration: number, restDuration: number }, ...],
- *   warmupDuration: number,
- * }
- *
- * Sound rules
- * ───────────
- * 🔔 Bell  : fired at the START of every phase (warmup, round, rest) and at session end
- * 🔔 Bell  : fired at the END of every phase   (when the timer reaches 0)
- * 🥊 Tap   : fired ONCE when timeRemaining crosses 10 s in any phase
- */
+const COUNTDOWN_SECS = [5, 4, 3, 2, 1]; // tap on each of these
+
 export function useBoxingTimer(config) {
   const { roundConfigs = [], warmupDuration = 0 } = config || {};
 
@@ -32,13 +21,14 @@ export function useBoxingTimer(config) {
   const [isRunning,     setIsRunning    ] = useState(false);
   const [elapsedTotal,  setElapsedTotal ] = useState(0);
 
-  const intervalRef  = useRef(null);
-  const lastTickRef  = useRef(null);
-  const phaseRef     = useRef(PHASE.IDLE);
-  const roundRef     = useRef(1);
-  const configsRef   = useRef(roundConfigs);
-  const tenSecRef    = useRef(false); // prevents tap from firing more than once per phase
-  const endBellRef   = useRef(false); // prevents end-bell from firing more than once per phase
+  const intervalRef    = useRef(null);
+  const lastTickRef    = useRef(null);
+  const phaseRef       = useRef(PHASE.IDLE);
+  const roundRef       = useRef(1);
+  const configsRef     = useRef(roundConfigs);
+  const tenSecRef      = useRef(false);  // double tap at 10s
+  const endBellRef     = useRef(false);  // end bell
+  const countdownRef   = useRef(new Set()); // tracks 5,4,3,2,1 taps
 
   phaseRef.current   = phase;
   roundRef.current   = currentRound;
@@ -46,11 +36,11 @@ export function useBoxingTimer(config) {
 
   // Reset per-phase flags whenever phase changes
   useEffect(() => {
-    tenSecRef.current  = false;
-    endBellRef.current = false;
+    tenSecRef.current    = false;
+    endBellRef.current   = false;
+    countdownRef.current = new Set();
   }, [phase]);
 
-  // ── Haptic helper ──────────────────────────────────────────────────────────
   const haptic = useCallback(async (type = 'light') => {
     try {
       if      (type === 'heavy')   await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -59,52 +49,44 @@ export function useBoxingTimer(config) {
     } catch {}
   }, []);
 
-  // ── Phase advance (called when timer reaches 0) ────────────────────────────
   const advancePhase = useCallback((currentPhase, roundIdx) => {
     const configs = configsRef.current;
     const total   = configs.length;
 
     if (currentPhase === PHASE.WARMUP) {
-      // Warmup ends → Round 1 starts
       setPhase(PHASE.ROUND);
       setCurrentRound(1);
       setTimeRemaining(configs[0].roundDuration);
-      SoundManager.playBell();          // 🔔 Round 1 start bell
+      SoundManager.playBell();
       haptic('heavy');
       return;
     }
-
     if (currentPhase === PHASE.ROUND) {
       if (roundIdx >= total) {
-        // Last round finished → session done
         setPhase(PHASE.DONE);
         setIsRunning(false);
         clearInterval(intervalRef.current);
-        SoundManager.playDoubleBell();  // 🔔🔔 Session complete double bell
+        SoundManager.playDoubleBell();
         haptic('success');
         return;
       }
-      // Round ends → Rest starts
       setPhase(PHASE.REST);
       setTimeRemaining(configs[roundIdx - 1].restDuration);
-      SoundManager.playBell();          // 🔔 Rest start bell
+      SoundManager.playBell();
       haptic('heavy');
       return;
     }
-
     if (currentPhase === PHASE.REST) {
-      // Rest ends → Next round starts
       const next = roundIdx + 1;
       setCurrentRound(next);
       setPhase(PHASE.ROUND);
       setTimeRemaining(configs[next - 1].roundDuration);
-      SoundManager.playBell();          // 🔔 New round start bell
+      SoundManager.playBell();
       haptic('heavy');
       return;
     }
   }, [haptic]);
 
-  // ── Main interval tick ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!isRunning || phase === PHASE.IDLE || phase === PHASE.DONE) return;
 
@@ -120,17 +102,26 @@ export function useBoxingTimer(config) {
       setTimeRemaining(prev => {
         const next = prev - delta;
 
-        // 🥊 Tap at 10-second warning (fires once per phase)
+        // 🔔🔔 Double tap at 10 seconds
         if (prev > 10 && next <= 10 && !tenSecRef.current) {
           tenSecRef.current = true;
-          SoundManager.playTap();
+          SoundManager.playDoubleTap();
           haptic('light');
         }
 
-        // 🔔 End bell when timer reaches 0 (fires once)
+        // 🔔 Single tap at each of 5, 4, 3, 2, 1 seconds
+        for (const sec of COUNTDOWN_SECS) {
+          if (prev > sec && next <= sec && !countdownRef.current.has(sec)) {
+            countdownRef.current.add(sec);
+            SoundManager.playTap();
+            haptic('light');
+          }
+        }
+
+        // 🔔 End bell
         if (next <= 0 && !endBellRef.current) {
           endBellRef.current = true;
-          SoundManager.playBell();      // 🔔 Phase end bell
+          SoundManager.playBell();
           setTimeout(() => advancePhase(phaseRef.current, roundRef.current), 50);
           return 0;
         }
@@ -142,33 +133,22 @@ export function useBoxingTimer(config) {
     return () => clearInterval(intervalRef.current);
   }, [isRunning, phase, advancePhase, haptic]);
 
-  // ── Controls ───────────────────────────────────────────────────────────────
   const start = useCallback(() => {
     if (!roundConfigs.length) return;
-
     const first      = roundConfigs[0];
     const startPhase = warmupDuration > 0 ? PHASE.WARMUP : PHASE.ROUND;
     const startTime  = warmupDuration > 0 ? warmupDuration : first.roundDuration;
-
     setPhase(startPhase);
     setCurrentRound(1);
     setTimeRemaining(startTime);
     setElapsedTotal(0);
     setIsRunning(true);
-
-    SoundManager.playBell();            // 🔔 Session start bell (warmup or round 1)
+    SoundManager.playBell();
     haptic('heavy');
   }, [roundConfigs, warmupDuration, haptic]);
 
-  const pause = useCallback(() => {
-    setIsRunning(false);
-    haptic('light');
-  }, [haptic]);
-
-  const resume = useCallback(() => {
-    setIsRunning(true);
-    haptic('light');
-  }, [haptic]);
+  const pause  = useCallback(() => { setIsRunning(false); haptic('light'); }, [haptic]);
+  const resume = useCallback(() => { setIsRunning(true);  haptic('light'); }, [haptic]);
 
   const stop = useCallback(() => {
     clearInterval(intervalRef.current);
@@ -180,7 +160,6 @@ export function useBoxingTimer(config) {
     haptic('light');
   }, [roundConfigs, haptic]);
 
-  // ── Progress (0 → 1) for current phase ────────────────────────────────────
   const getPhaseDuration = () => {
     const cfg = roundConfigs[currentRound - 1] || roundConfigs[0] || {};
     if (phase === PHASE.WARMUP) return warmupDuration;

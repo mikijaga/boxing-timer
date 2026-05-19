@@ -8,21 +8,23 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
+  TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../utils/theme';
 import { formatDuration } from '../utils/format';
 import TimeControl from '../components/TimeControl';
-import AdBanner from '../components/AdBanner';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
-const DEFAULT_ROUND   = { roundDuration: 180, restDuration: 60 };
+const DEFAULT_ROUND   = { roundDuration: 180, restDuration: 60, name: '' };
 const DEFAULT_WARMUP  = 0;
 
 let _id = 0;
-const makeRound = (base = DEFAULT_ROUND) => ({ ...base, id: ++_id });
+const makeRound = (base = DEFAULT_ROUND) => ({ ...base, name: base.name ?? '', id: ++_id });
 
 // ─── Root screen ─────────────────────────────────────────────────────────────
 export default function SetupScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [rounds, setRounds] = useState([
     makeRound({ roundDuration: 180, restDuration: 60 }),
     makeRound({ roundDuration: 180, restDuration: 60 }),
@@ -80,7 +82,6 @@ export default function SetupScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
@@ -88,7 +89,7 @@ export default function SetupScreen({ navigation }) {
       >
         {/* ── Header ── */}
         <View style={styles.topRow}>
-          <Text style={styles.appTitle}>🥊 RoundMaster</Text>
+          <Text style={styles.appTitle}>🥊 Boxing Timer</Text>
           <View style={styles.totalChip}>
             <Text style={styles.totalChipLabel}>TOTAL</Text>
             <Text style={styles.totalChipValue}>{formatDuration(totalSeconds)}</Text>
@@ -143,11 +144,13 @@ export default function SetupScreen({ navigation }) {
         </TouchableOpacity>
 
         {/* ── Ad placeholder ── */}
-        <AdBanner />
+        <View style={styles.adBanner}>
+          <Text style={styles.adText}>Advertisement</Text>
+        </View>
       </ScrollView>
 
       {/* ── Fixed footer start button ── */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}>
         <TouchableOpacity style={styles.startBtn} onPress={handleStart} activeOpacity={0.85}>
           <Text style={styles.startBtnLabel}>START SESSION</Text>
           <Text style={styles.startBtnSub}>
@@ -170,7 +173,9 @@ function RoundCard({ round, index, isExpanded, onToggle, onUpdate, onRemove, onA
           <Text style={styles.roundBadgeNum}>{index + 1}</Text>
         </View>
         <View style={styles.roundMeta}>
-          <Text style={styles.roundTitle}>Round {index + 1}</Text>
+          <Text style={styles.roundTitle}>
+            {round.name ? round.name : `Round ${index + 1}`}
+          </Text>
           <Text style={styles.roundSummary}>
             ⚡ {formatDuration(round.roundDuration)}  ·  💤 {formatDuration(round.restDuration)} rest
           </Text>
@@ -181,6 +186,25 @@ function RoundCard({ round, index, isExpanded, onToggle, onUpdate, onRemove, onA
       {/* ── Expanded body ── */}
       {isExpanded && (
         <View style={styles.roundBody}>
+
+          {/* ── Optional workout name ── */}
+          <View style={styles.nameInputWrap}>
+            <Text style={styles.nameInputLabel}>WORKOUT NAME (optional)</Text>
+            <TextInput
+              style={styles.nameInput}
+              value={round.name}
+              onChangeText={(v) => onUpdate('name', v)}
+              placeholder="Name of workout"
+              placeholderTextColor={COLORS.textTertiary}
+              maxLength={40}
+              returnKeyType="done"
+              clearButtonMode="while-editing"
+            />
+            {round.name.length > 0 && (
+              <Text style={styles.nameInputCount}>{round.name.length}/40</Text>
+            )}
+          </View>
+
           <TimeControl
             label="Round Duration"
             value={round.roundDuration}
@@ -376,6 +400,36 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
+
+  // ── Workout name input ────────────────────────────────────────────────────
+  nameInputWrap: {
+    marginBottom: 12,
+  },
+  nameInputLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 1.3,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  nameInput: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 10,
+    borderWidth: 0.5,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: '400',
+  },
+  nameInputCount: {
+    color: COLORS.textTertiary,
+    fontSize: 10,
+    textAlign: 'right',
+    marginTop: 4,
+  },
   actionBtn: {
     flex: 1,
     paddingVertical: 9,
@@ -433,8 +487,8 @@ const styles = StyleSheet.create({
 
   // Footer
   footer: {
-    padding: 16,
-    paddingBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     backgroundColor: COLORS.bg,
     borderTopWidth: 0.5,
     borderTopColor: COLORS.border,

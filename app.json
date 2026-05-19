@@ -8,21 +8,23 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
       "backgroundColor": "#0A0A0A"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mikijaga.roundmaster",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
-        "CFBundleDisplayName": "RoundMaster",
-        "ITSAppUsesNonExemptEncryption": false
+        "CFBundleDisplayName": "RoundMaster"
       }
     },
     "android": {
       "package": "com.mikijaga.roundmaster",
-      "versionCode": 4,
+      "versionCode": 6,
       "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#0A0A0A"
       }
     },

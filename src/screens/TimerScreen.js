@@ -10,6 +10,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useBoxingTimer, PHASE } from '../hooks/useBoxingTimer';
 import ProgressRing from '../components/ProgressRing';
@@ -45,6 +46,7 @@ export default function TimerScreen({ navigation, route }) {
   const { roundConfigs, warmupDuration } = route.params;
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+  const insets = useSafeAreaInsets();
 
   useKeepAwake();
 
@@ -74,12 +76,22 @@ export default function TimerScreen({ navigation, route }) {
   const dimBg  = PHASE_DIM[phase]   || 'transparent';
 
   const nextText = (() => {
-    if (phase === PHASE.WARMUP)  return `Round 1 · ${formatDuration(roundConfigs[0]?.roundDuration ?? 0)}`;
+    const r1Name = roundConfigs[0]?.name ?? '';
+    if (phase === PHASE.WARMUP) {
+      return r1Name
+        ? `Round 1 · ${r1Name} · ${formatDuration(roundConfigs[0]?.roundDuration ?? 0)}`
+        : `Round 1 · ${formatDuration(roundConfigs[0]?.roundDuration ?? 0)}`;
+    }
     if (phase === PHASE.ROUND) {
       if (currentRound >= totalRounds) return 'Last round — finish strong!';
       return `Rest · ${formatDuration(currentConfig?.restDuration ?? 0)}`;
     }
-    if (phase === PHASE.REST && nextConfig) return `Round ${currentRound + 1} · ${formatDuration(nextConfig.roundDuration)}`;
+    if (phase === PHASE.REST && nextConfig) {
+      const nextName = nextConfig.name ?? '';
+      return nextName
+        ? `Round ${currentRound + 1} · ${nextName} · ${formatDuration(nextConfig.roundDuration)}`
+        : `Round ${currentRound + 1} · ${formatDuration(nextConfig.roundDuration)}`;
+    }
     return '';
   })();
 
@@ -92,12 +104,17 @@ export default function TimerScreen({ navigation, route }) {
 
   const handleBack = () => { stop(); navigation.goBack(); };
 
-  // Ring size adapts to orientation
+  // Ring size adapts to orientation and whether a workout name is shown
+  const hasWorkoutName = phase === PHASE.ROUND && typeof workoutName === 'string' && workoutName.length > 0;
   const ringSize = isLandscape
     ? Math.min(height * 0.65, 240)
-    : Math.min(width * 0.70, 290);
+    : hasWorkoutName
+      ? Math.min(width * 0.62, 260)
+      : Math.min(width * 0.70, 290);
 
   // ── Inline render helpers (NOT components — avoids remount bug) ─────────────
+
+  const workoutName = (currentConfig?.name ?? '').trim();
 
   const phaseBanner = (
     <View style={[styles.phaseBanner, { backgroundColor: dimBg }]}>
@@ -226,6 +243,13 @@ export default function TimerScreen({ navigation, route }) {
             </View>
 
             {phaseBanner}
+            {phase === PHASE.ROUND && workoutName.length > 0 && (
+              <View style={[styles.workoutNameBannerLandscape, { borderColor: `${color}40` }]}>
+                <Text style={[styles.workoutNameLandscape, { color }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {workoutName}
+                </Text>
+              </View>
+            )}
             {roundDots}
             {nextRow}
             {controlBtn}
@@ -258,6 +282,15 @@ export default function TimerScreen({ navigation, route }) {
 
       {phaseBanner}
 
+      {/* Workout name — large, prominent, below phase banner */}
+      {phase === PHASE.ROUND && workoutName.length > 0 && (
+        <View style={[styles.workoutNameBanner, { borderColor: `${color}40` }]}>
+          <Text style={[styles.workoutNameLarge, { color }]} numberOfLines={2} adjustsFontSizeToFit>
+            {workoutName}
+          </Text>
+        </View>
+      )}
+
       {/* Ring */}
       <View style={styles.ringWrap}>
         <ProgressRing
@@ -279,11 +312,13 @@ export default function TimerScreen({ navigation, route }) {
 
       {nextRow}
 
-      <View style={styles.ctrlRow}>
+      <View style={[styles.ctrlRow]}>
         {controlBtn}
       </View>
 
-      {adSlot}
+      <View style={{ paddingBottom: Math.max(insets.bottom + 4, 10) }}>
+        {adSlot}
+      </View>
     </SafeAreaView>
   );
 }
@@ -334,6 +369,53 @@ const styles = StyleSheet.create({
   roundPill:      { borderWidth: 1, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 2 },
   roundPillText:  { fontSize: 12, fontWeight: '600', letterSpacing: 1 },
   phaseSubtext:   { fontSize: 12, fontWeight: '500', letterSpacing: 0.5 },
+  workoutNamePill: {
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    maxWidth: 160,
+  },
+  workoutNameText: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+
+  // Large workout name banner — shown below phase banner during a round
+  workoutNameBanner: {
+    marginHorizontal: 20,
+    marginBottom: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+  },
+  workoutNameLarge: {
+    fontSize: 22,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
+
+  // Landscape variant — more compact
+  workoutNameBannerLandscape: {
+    marginBottom: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+  },
+  workoutNameLandscape: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
 
   // Ring
   ringWrap: {

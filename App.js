@@ -1,16 +1,20 @@
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
 import SetupScreen from './src/screens/SetupScreen';
 import TimerScreen from './src/screens/TimerScreen';
 import WarmUpScreen from './src/screens/WarmUpScreen';
 import { COLORS } from './src/utils/theme';
 import { SoundManager } from './src/utils/SoundManager';
+
+// Keep splash screen visible until we are ready
+SplashScreen.preventAutoHideAsync();
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -29,7 +33,6 @@ const NAV_THEME = {
   },
 };
 
-// Bottom tab navigator (home tabs)
 function HomeTabs() {
   return (
     <Tab.Navigator
@@ -75,34 +78,55 @@ function HomeTabs() {
   );
 }
 
-// Root stack (home + full-screen timer)
 export default function App() {
-  // Initialise sounds as early as possible so they are ready when needed
+  const [appIsReady, setAppIsReady] = useState(false);
+
   useEffect(() => {
-    SoundManager.init();
+    async function prepare() {
+      try {
+        // Initialise sounds while splash is showing
+        await SoundManager.init();
+      } catch (e) {
+        console.warn('App prepare error:', e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
+    prepare();
   }, []);
 
+  const onLayoutRootView = useCallback(async () => {
+    if (appIsReady) {
+      // Hide the splash screen now that the app is ready
+      await SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
+
+  if (!appIsReady) return null;
+
   return (
-    <NavigationContainer theme={NAV_THEME}>
-      <StatusBar style="light" />
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          cardStyle: { backgroundColor: COLORS.bg },
-          presentation: 'modal',
-          gestureEnabled: false,
-        }}
-      >
-        <Stack.Screen name="Home" component={HomeTabs} />
-        <Stack.Screen
-          name="Timer"
-          component={TimerScreen}
-          options={{
-            presentation: 'fullScreenModal',
+    <View style={{ flex: 1, backgroundColor: COLORS.bg }} onLayout={onLayoutRootView}>
+      <NavigationContainer theme={NAV_THEME}>
+        <StatusBar style="light" backgroundColor={COLORS.bg} />
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            cardStyle: { backgroundColor: COLORS.bg },
+            presentation: 'modal',
             gestureEnabled: false,
           }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+        >
+          <Stack.Screen name="Home" component={HomeTabs} />
+          <Stack.Screen
+            name="Timer"
+            component={TimerScreen}
+            options={{
+              presentation: 'fullScreenModal',
+              gestureEnabled: false,
+            }}
+          />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </View>
   );
 }

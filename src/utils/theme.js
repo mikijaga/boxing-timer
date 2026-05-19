@@ -31,3 +31,6 @@ export const MIN_ROUND_DURATION = 10;
 export const MAX_ROUND_DURATION = 600;
 export const MIN_REST_DURATION = 5;
 export const MAX_REST_DURATION = 300;
+
+// Max content width — prevents content stretching on tablets and iPads
+export const MAX_CONTENT_WIDTH = 600;
