@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startBtnLabel: {
-    color: '#fff',
+    color: '#28305E',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 2,

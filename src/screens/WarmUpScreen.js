@@ -241,7 +241,7 @@ const s = StyleSheet.create({
   soundBadgeText: { color: COLORS.textSecondary, fontSize: 10, letterSpacing: 0.3, textAlign: 'center' },
   btn:          { width: '100%', borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginBottom: 10 },
   startBtn:     { backgroundColor: COLORS.warning },
-  startBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 2 },
+  startBtnText: { color: '#28305E', fontSize: 14, fontWeight: '700', letterSpacing: 2 },
   stopBtn:      { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.primary },
   stopBtnText:  { color: COLORS.primary, fontSize: 14, fontWeight: '700', letterSpacing: 2 },
   btnDisabled:  { opacity: 0.4 },

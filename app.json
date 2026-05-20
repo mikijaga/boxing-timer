@@ -10,22 +10,22 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0A0A"
+      "backgroundColor": "#1C2247"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mikijaga.roundmaster",
-      "buildNumber": "4",
+      "buildNumber": "3",
       "infoPlist": {
         "CFBundleDisplayName": "RoundMaster"
       }
     },
     "android": {
       "package": "com.mikijaga.roundmaster",
-      "versionCode": 6,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#0A0A0A"
+        "backgroundColor": "#1C2247"
       }
     },
     "web": {},
