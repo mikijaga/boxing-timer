@@ -9,6 +9,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import ProgressRing from '../components/ProgressRing';
 import TimeControl from '../components/TimeControl';
 import AdBanner from '../components/AdBanner';
+import ResponsiveContainer from '../components/ResponsiveContainer';
 import { COLORS } from '../utils/theme';
 import { formatTime } from '../utils/format';
 import { SoundManager } from '../utils/SoundManager';
@@ -190,6 +191,7 @@ export default function WarmUpScreen() {
   return (
     <SafeAreaView style={s.safe}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <ResponsiveContainer>
       <ScrollView
         contentContainerStyle={[s.portraitContent, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}
         showsVerticalScrollIndicator={false}
@@ -211,6 +213,7 @@ export default function WarmUpScreen() {
         )}
         <AdBanner />
       </ScrollView>
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 }

@@ -15,14 +15,15 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.mikijaga.roundmaster",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
-        "CFBundleDisplayName": "RoundMaster"
+        "CFBundleDisplayName": "RoundMaster",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.mikijaga.roundmaster",
-      "versionCode": 5,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/icon.png",
         "backgroundColor": "#1C2247"

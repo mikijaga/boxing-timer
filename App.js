@@ -4,16 +4,17 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { StatusBar } from 'expo-status-bar';
-import { Text, View, Animated, StyleSheet, Image } from 'react-native';
+import { Text, View, Animated, StyleSheet, Image, useWindowDimensions } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import SetupScreen from './src/screens/SetupScreen';
-import TimerScreen from './src/screens/TimerScreen';
-import WarmUpScreen from './src/screens/WarmUpScreen';
+import SetupScreen   from './src/screens/SetupScreen';
+import TimerScreen   from './src/screens/TimerScreen';
+import WarmUpScreen  from './src/screens/WarmUpScreen';
+import HistoryScreen from './src/screens/HistoryScreen';
 import { COLORS } from './src/utils/theme';
 import { SoundManager } from './src/utils/SoundManager';
 
-// Keep native splash visible until we manually hide it
 SplashScreen.preventAutoHideAsync();
 
 const Stack = createStackNavigator();
@@ -34,6 +35,8 @@ const NAV_THEME = {
 };
 
 function HomeTabs() {
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -42,14 +45,15 @@ function HomeTabs() {
           backgroundColor: COLORS.surface,
           borderTopColor:  COLORS.border,
           borderTopWidth:  0.5,
-          height:          60,
-          paddingBottom:   8,
+          height:          60 + insets.bottom,
+          paddingBottom:   Math.max(insets.bottom, 8),
+          paddingTop:      8,
         },
         tabBarActiveTintColor:   COLORS.primary,
         tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: {
-          fontSize:    11,
-          fontWeight:  '600',
+          fontSize:      11,
+          fontWeight:    '600',
           letterSpacing: 0.5,
         },
       }}
@@ -61,6 +65,16 @@ function HomeTabs() {
           tabBarLabel: 'Session',
           tabBarIcon: ({ color }) => (
             <Text style={{ fontSize: 20, color }}>🥊</Text>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="History"
+        component={HistoryScreen}
+        options={{
+          tabBarLabel: 'History',
+          tabBarIcon: ({ color }) => (
+            <Text style={{ fontSize: 20, color }}>🕐</Text>
           ),
         }}
       />
@@ -78,29 +92,65 @@ function HomeTabs() {
   );
 }
 
+// ─── Responsive splash overlay ────────────────────────────────────────────────
+function SplashOverlay({ opacity }) {
+  const { width, height } = useWindowDimensions();
+
+  const iconSize   = width * 0.30;
+  const titleSize  = Math.round(width * 0.09);
+  const tagSize    = Math.round(width * 0.036);
+  const footerSize = Math.round(width * 0.028);
+
+  return (
+    <Animated.View
+      style={[styles.splash, { opacity }]}
+      pointerEvents="none"
+    >
+      <View style={styles.splashBg} />
+
+      <Image
+        source={require('./assets/icon.png')}
+        style={{
+          width:        iconSize,
+          height:       iconSize,
+          borderRadius: iconSize * 0.23,
+          marginBottom: height * 0.03,
+        }}
+        resizeMode="contain"
+      />
+
+      <Text style={[styles.splashTitle, { fontSize: titleSize }]}>
+        RoundMaster
+      </Text>
+
+      <Text style={[styles.splashTagline, { fontSize: tagSize }]}>
+        Train Harder. Fight Smarter.
+      </Text>
+
+      <Text style={[styles.splashFooter, { fontSize: footerSize, bottom: height * 0.06 }]}>
+        🥊 Boxing Timer Pro
+      </Text>
+    </Animated.View>
+  );
+}
+
 export default function App() {
-  const [appIsReady,      setAppIsReady     ] = useState(false);
-  const [splashVisible,   setSplashVisible  ] = useState(true);
+  const [appIsReady,    setAppIsReady   ] = useState(false);
+  const [splashVisible, setSplashVisible] = useState(true);
 
-  // Animated values
-  const splashOpacity = useRef(new Animated.Value(0)).current;  // starts invisible
-  const appOpacity    = useRef(new Animated.Value(0)).current;  // app starts invisible
+  const splashOpacity = useRef(new Animated.Value(0)).current;
+  const appOpacity    = useRef(new Animated.Value(0)).current;
 
-  // ── Step 1: Fade splash IN as soon as component mounts ──────────────────────
   useEffect(() => {
     Animated.timing(splashOpacity, {
-      toValue:         1,
-      duration:        600,   // ease-in over 600ms
-      useNativeDriver: true,
+      toValue: 1, duration: 600, useNativeDriver: true,
     }).start();
   }, []);
 
-  // ── Step 2: Load resources while splash is showing ───────────────────────────
   useEffect(() => {
     async function prepare() {
       try {
         await SoundManager.init();
-        // Small extra delay so splash is seen even on fast devices
         await new Promise(resolve => setTimeout(resolve, 800));
       } catch (e) {
         console.warn('App prepare error:', e);
@@ -111,95 +161,53 @@ export default function App() {
     prepare();
   }, []);
 
-  // ── Step 3: When ready, fade splash OUT then fade app IN ─────────────────────
   useEffect(() => {
     if (!appIsReady) return;
-
-    // Hide native splash screen first
     SplashScreen.hideAsync();
-
-    // Fade out the custom splash overlay
     Animated.timing(splashOpacity, {
-      toValue:         0,
-      duration:        500,   // ease-out over 500ms
-      useNativeDriver: true,
-    }).start(() => {
-      // Once splash is gone, remove it from the tree
-      setSplashVisible(false);
-    });
-
-    // Fade app in simultaneously
+      toValue: 0, duration: 500, useNativeDriver: true,
+    }).start(() => setSplashVisible(false));
     Animated.timing(appOpacity, {
-      toValue:         1,
-      duration:        500,
-      useNativeDriver: true,
+      toValue: 1, duration: 500, useNativeDriver: true,
     }).start();
   }, [appIsReady]);
 
   return (
-    <View style={styles.root}>
+    <SafeAreaProvider>
+      <View style={styles.root}>
 
-      {/* ── App content (fades in) ── */}
-      <Animated.View style={[styles.fill, { opacity: appOpacity }]}>
-        <NavigationContainer theme={NAV_THEME}>
-          <StatusBar style="light" backgroundColor={COLORS.bg} />
-          <Stack.Navigator
-            screenOptions={{
-              headerShown:  false,
-              cardStyle:    { backgroundColor: COLORS.bg },
-              presentation: 'modal',
-              gestureEnabled: false,
-            }}
-          >
-            <Stack.Screen name="Home" component={HomeTabs} />
-            <Stack.Screen
-              name="Timer"
-              component={TimerScreen}
-              options={{
-                presentation:   'fullScreenModal',
+        <Animated.View style={[styles.fill, { opacity: appOpacity }]}>
+          <NavigationContainer theme={NAV_THEME}>
+            <StatusBar style="light" backgroundColor={COLORS.bg} />
+            <Stack.Navigator
+              screenOptions={{
+                headerShown:    false,
+                cardStyle:      { backgroundColor: COLORS.bg },
+                presentation:   'modal',
                 gestureEnabled: false,
               }}
-            />
-          </Stack.Navigator>
-        </NavigationContainer>
-      </Animated.View>
-
-      {/* ── Custom splash overlay (fades in then out) ── */}
-      {splashVisible && (
-        <Animated.View
-          style={[styles.splash, { opacity: splashOpacity }]}
-          pointerEvents="none"
-        >
-          {/* Dark background */}
-          <View style={styles.splashBg} />
-
-          {/* App icon */}
-          <Image
-            source={require('./assets/icon.png')}
-            style={styles.splashIcon}
-            resizeMode="contain"
-          />
-
-          {/* App name */}
-          <Text style={styles.splashTitle}>RoundMaster</Text>
-
-          {/* Tagline */}
-          <Text style={styles.splashTagline}>Train Harder. Fight Smarter.</Text>
-
-          {/* Bottom brand mark */}
-          <Text style={styles.splashFooter}>🥊 Boxing Timer Pro</Text>
+            >
+              <Stack.Screen name="Home"  component={HomeTabs} />
+              <Stack.Screen
+                name="Timer"
+                component={TimerScreen}
+                options={{ presentation: 'fullScreenModal', gestureEnabled: false }}
+              />
+            </Stack.Navigator>
+          </NavigationContainer>
         </Animated.View>
-      )}
 
-    </View>
+        {splashVisible && <SplashOverlay opacity={splashOpacity} />}
+
+      </View>
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root:  { flex: 1, backgroundColor: '#1C2247' },
-  fill:  { flex: 1 },
+  root: { flex: 1, backgroundColor: '#1C2247' },
+  fill: { flex: 1 },
 
-  // ── Custom splash ─────────────────────────────────────────────────────────
   splash: {
     ...StyleSheet.absoluteFillObject,
     alignItems:     'center',
@@ -210,30 +218,20 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: '#1C2247',
   },
-  splashIcon: {
-    width:        120,
-    height:       120,
-    borderRadius: 28,
-    marginBottom: 24,
-  },
   splashTitle: {
     color:         '#80E4E9',
-    fontSize:      36,
     fontWeight:    '700',
     letterSpacing: -0.5,
     marginBottom:  8,
   },
   splashTagline: {
     color:         '#A8BDD0',
-    fontSize:      14,
     letterSpacing: 1,
     fontWeight:    '400',
   },
   splashFooter: {
     position:      'absolute',
-    bottom:        48,
     color:         '#476485',
-    fontSize:      11,
     letterSpacing: 0.5,
   },
 });

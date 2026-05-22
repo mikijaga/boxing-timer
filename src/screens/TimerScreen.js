@@ -4,12 +4,12 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   useWindowDimensions,
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useKeepAwake } from 'expo-keep-awake';
 import { useBoxingTimer, PHASE } from '../hooks/useBoxingTimer';
@@ -17,6 +17,8 @@ import ProgressRing from '../components/ProgressRing';
 import { COLORS } from '../utils/theme';
 import { formatTime, formatDuration, formatElapsed } from '../utils/format';
 import AdBanner from '../components/AdBanner';
+import ResponsiveContainer from '../components/ResponsiveContainer';
+import { saveSession } from '../utils/HistoryManager';
 
 const PHASE_COLOR = {
   [PHASE.WARMUP]: COLORS.warning,
@@ -72,6 +74,20 @@ export default function TimerScreen({ navigation, route }) {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
+  // ── Save session to history when it completes ─────────────────────────────
+  useEffect(() => {
+    if (phase === PHASE.DONE) {
+      saveSession({
+        id:             Date.now().toString(),
+        completedAt:    new Date().toISOString(),
+        totalRounds,
+        warmupDuration,
+        elapsedTotal,
+        roundConfigs,
+      });
+    }
+  }, [phase]);
+
   const color  = PHASE_COLOR[phase] || COLORS.primary;
   const dimBg  = PHASE_DIM[phase]   || 'transparent';
 
@@ -105,7 +121,8 @@ export default function TimerScreen({ navigation, route }) {
   const handleBack = () => { stop(); navigation.goBack(); };
 
   // Ring size adapts to orientation and whether a workout name is shown
-  const hasWorkoutName = phase === PHASE.ROUND && typeof workoutName === 'string' && workoutName.length > 0;
+  const workoutName = (currentConfig?.name ?? '').trim();
+  const hasWorkoutName = phase === PHASE.ROUND && workoutName.length > 0;
   const ringSize = isLandscape
     ? Math.min(height * 0.65, 240)
     : hasWorkoutName
@@ -113,8 +130,6 @@ export default function TimerScreen({ navigation, route }) {
       : Math.min(width * 0.70, 290);
 
   // ── Inline render helpers (NOT components — avoids remount bug) ─────────────
-
-  const workoutName = (currentConfig?.name ?? '').trim();
 
   const phaseBanner = (
     <View style={[styles.phaseBanner, { backgroundColor: dimBg }]}>
@@ -207,7 +222,7 @@ export default function TimerScreen({ navigation, route }) {
   // ── Landscape layout ────────────────────────────────────────────────────────
   if (isLandscape) {
     return (
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView style={styles.safe} edges={['top']}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
         <View style={styles.landscapeContainer}>
 
@@ -261,10 +276,11 @@ export default function TimerScreen({ navigation, route }) {
     );
   }
 
-  // ── Portrait layout ─────────────────────────────────────────────────────────
+  // ── Portrait layout ──────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <ResponsiveContainer>
 
       {/* Top bar */}
       <View style={styles.topBar}>
@@ -319,6 +335,7 @@ export default function TimerScreen({ navigation, route }) {
       <View style={{ paddingBottom: Math.max(insets.bottom + 4, 10) }}>
         {adSlot}
       </View>
+      </ResponsiveContainer>
     </SafeAreaView>
   );
 }
@@ -382,7 +399,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // Large workout name banner — shown below phase banner during a round
+  // Large workout name banner
   workoutNameBanner: {
     marginHorizontal: 20,
     marginBottom: 6,
@@ -400,7 +417,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Landscape variant — more compact
+  // Landscape variant
   workoutNameBannerLandscape: {
     marginBottom: 6,
     paddingVertical: 7,

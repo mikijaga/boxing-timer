@@ -2,35 +2,27 @@ import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { COLORS } from '../utils/theme';
 
-// react-native-google-mobile-ads requires native code
-// It only works in production builds — NOT in Expo Go
-// This component safely handles both cases
-
 let BannerAd, BannerAdSize, TestIds;
 let adsAvailable = false;
 
 try {
   const ads = require('react-native-google-mobile-ads');
-  BannerAd   = ads.BannerAd;
+  BannerAd     = ads.BannerAd;
   BannerAdSize = ads.BannerAdSize;
-  TestIds    = ads.TestIds;
+  TestIds      = ads.TestIds;
   adsAvailable = true;
-} catch (e) {
+} catch {
   adsAvailable = false;
 }
 
-// ── Replace these with your real Ad Unit IDs from AdMob ──────────────────────
 const ANDROID_AD_UNIT_ID = 'ca-app-pub-9909776849077501~4950843888';
 const IOS_AD_UNIT_ID     = 'ca-app-pub-9909776849077501~4950843888';
 
 const adUnitId = __DEV__
   ? (adsAvailable ? TestIds?.BANNER : null)
-  : Platform.OS === 'android'
-    ? ANDROID_AD_UNIT_ID
-    : IOS_AD_UNIT_ID;
+  : Platform.OS === 'android' ? ANDROID_AD_UNIT_ID : IOS_AD_UNIT_ID;
 
 export default function AdBanner() {
-  // In Expo Go or if ads not available — show placeholder
   if (!adsAvailable || !adUnitId) {
     return (
       <View style={styles.placeholder}>
@@ -38,16 +30,12 @@ export default function AdBanner() {
       </View>
     );
   }
-
-  // In production build — show real ad
   return (
     <View style={styles.container}>
       <BannerAd
         unitId={adUnitId}
         size={BannerAdSize.BANNER}
-        requestOptions={{
-          requestNonPersonalizedAdsOnly: false,
-        }}
+        requestOptions={{ requestNonPersonalizedAdsOnly: false }}
       />
     </View>
   );

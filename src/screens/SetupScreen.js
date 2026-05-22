@@ -1,37 +1,88 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   Alert,
   TextInput,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS } from '../utils/theme';
 import { formatDuration } from '../utils/format';
 import TimeControl from '../components/TimeControl';
+import ResponsiveContainer from '../components/ResponsiveContainer';
+
+// ─── Draft storage key ────────────────────────────────────────────────────────
+const DRAFT_KEY = 'roundmaster_setup_draft';
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
-const DEFAULT_ROUND   = { roundDuration: 180, restDuration: 60, name: '' };
-const DEFAULT_WARMUP  = 0;
+const DEFAULT_ROUND  = { roundDuration: 180, restDuration: 60, name: '' };
+const DEFAULT_WARMUP = 0;
 
 let _id = 0;
 const makeRound = (base = DEFAULT_ROUND) => ({ ...base, name: base.name ?? '', id: ++_id });
 
+const DEFAULT_ROUNDS = [
+  makeRound({ roundDuration: 180, restDuration: 60 }),
+  makeRound({ roundDuration: 180, restDuration: 60 }),
+  makeRound({ roundDuration: 180, restDuration: 60 }),
+];
+
 // ─── Root screen ─────────────────────────────────────────────────────────────
 export default function SetupScreen({ navigation }) {
   const insets = useSafeAreaInsets();
-  const [rounds, setRounds] = useState([
-    makeRound({ roundDuration: 180, restDuration: 60 }),
-    makeRound({ roundDuration: 180, restDuration: 60 }),
-    makeRound({ roundDuration: 180, restDuration: 60 }),
-  ]);
+
+  const [rounds,         setRounds        ] = useState(DEFAULT_ROUNDS);
   const [warmupDuration, setWarmupDuration] = useState(DEFAULT_WARMUP);
-  const [expandedId, setExpandedId]         = useState(null);
+  const [expandedId,     setExpandedId    ] = useState(null);
+  const [draftLoaded,    setDraftLoaded   ] = useState(false);
+
+  // ── Load saved draft on first mount ─────────────────────────────────────────
+  useEffect(() => {
+    async function loadDraft() {
+      try {
+        const raw = await AsyncStorage.getItem(DRAFT_KEY);
+        if (raw) {
+          const draft = JSON.parse(raw);
+
+          if (Array.isArray(draft.rounds) && draft.rounds.length > 0) {
+            // Ensure IDs are unique and above the current counter
+            const maxId = Math.max(...draft.rounds.map(r => r.id ?? 0));
+            if (maxId >= _id) _id = maxId; // keep counter above loaded IDs
+            setRounds(draft.rounds);
+          }
+
+          if (typeof draft.warmupDuration === 'number') {
+            setWarmupDuration(draft.warmupDuration);
+          }
+        }
+      } catch (e) {
+        console.warn('SetupScreen: failed to load draft', e);
+      } finally {
+        setDraftLoaded(true);
+      }
+    }
+    loadDraft();
+  }, []);
+
+  // ── Auto-save draft whenever rounds or warmup change ────────────────────────
+  // Only starts saving after the draft has been loaded, so we never
+  // overwrite a saved draft with the default values on first render.
+  useEffect(() => {
+    if (!draftLoaded) return;
+    async function saveDraft() {
+      try {
+        await AsyncStorage.setItem(DRAFT_KEY, JSON.stringify({ rounds, warmupDuration }));
+      } catch (e) {
+        console.warn('SetupScreen: failed to save draft', e);
+      }
+    }
+    saveDraft();
+  }, [rounds, warmupDuration, draftLoaded]);
 
   // ── Mutators ────────────────────────────────────────────────────────────────
   const addRound = () => {
@@ -73,81 +124,82 @@ export default function SetupScreen({ navigation }) {
     rounds.reduce((acc, r) => acc + r.roundDuration, 0) +
     rounds.slice(0, -1).reduce((acc, r) => acc + r.restDuration, 0);
 
-  const allSame =
-    rounds.every(r =>
-      r.roundDuration === rounds[0].roundDuration &&
-      r.restDuration === rounds[0].restDuration
-    );
+  const allSame = rounds.every(r =>
+    r.roundDuration === rounds[0].roundDuration &&
+    r.restDuration  === rounds[0].restDuration
+  );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Header ── */}
-        <View style={styles.topRow}>
-          <Text style={styles.appTitle}>🥊 Boxing Timer</Text>
-          <View style={styles.totalChip}>
-            <Text style={styles.totalChipLabel}>TOTAL</Text>
-            <Text style={styles.totalChipValue}>{formatDuration(totalSeconds)}</Text>
+      <ResponsiveContainer>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Header ── */}
+          <View style={styles.topRow}>
+            <Text style={styles.appTitle}>🥊 Boxing Timer</Text>
+            <View style={styles.totalChip}>
+              <Text style={styles.totalChipLabel}>TOTAL</Text>
+              <Text style={styles.totalChipValue}>{formatDuration(totalSeconds)}</Text>
+            </View>
           </View>
-        </View>
 
-        {/* ── Quick summary bar ── */}
-        <View style={styles.summaryBar}>
-          <SummaryPill emoji="🔄" label={`${rounds.length} rounds`} />
-          <SummaryPill emoji="⚡" label={allSame ? formatDuration(rounds[0].roundDuration) + '/round' : 'Mixed durations'} />
-          <SummaryPill emoji="💤" label={allSame ? formatDuration(rounds[0].restDuration) + ' rest' : 'Mixed rest'} />
-          {warmupDuration > 0 && <SummaryPill emoji="🔥" label={formatDuration(warmupDuration) + ' warm-up'} />}
-        </View>
+          {/* ── Quick summary bar ── */}
+          <View style={styles.summaryBar}>
+            <SummaryPill emoji="🔄" label={`${rounds.length} rounds`} />
+            <SummaryPill emoji="⚡" label={allSame ? formatDuration(rounds[0].roundDuration) + '/round' : 'Mixed durations'} />
+            <SummaryPill emoji="💤" label={allSame ? formatDuration(rounds[0].restDuration) + ' rest' : 'Mixed rest'} />
+            {warmupDuration > 0 && <SummaryPill emoji="🔥" label={formatDuration(warmupDuration) + ' warm-up'} />}
+          </View>
 
-        {/* ── Warm-up ── */}
-        <SectionTitle title="Warm-up" subtitle="optional · max 60s" />
-        <TimeControl
-          label="Warm-up duration"
-          value={warmupDuration}
-          onChange={(v) => setWarmupDuration(Math.min(60, Math.max(0, v)))}
-          min={0}
-          max={60}
-          step={5}
-        />
-        {warmupDuration === 0 && (
-          <Text style={styles.hint}>Disabled — session starts immediately with round 1</Text>
-        )}
-
-        {/* ── Rounds ── */}
-        <SectionTitle
-          title="Rounds"
-          subtitle={`${rounds.length} round${rounds.length !== 1 ? 's' : ''} configured`}
-        />
-
-        {rounds.map((round, index) => (
-          <RoundCard
-            key={round.id}
-            round={round}
-            index={index}
-            isExpanded={expandedId === round.id}
-            onToggle={() => setExpandedId(expandedId === round.id ? null : round.id)}
-            onUpdate={(key, val) => updateRound(round.id, key, val)}
-            onRemove={() => removeRound(round.id)}
-            onApplyAll={() => applyToAll(round.id)}
-            canRemove={rounds.length > 1}
+          {/* ── Warm-up ── */}
+          <SectionTitle title="Warm-up" subtitle="optional · max 60s" />
+          <TimeControl
+            label="Warm-up duration"
+            value={warmupDuration}
+            onChange={(v) => setWarmupDuration(Math.min(60, Math.max(0, v)))}
+            min={0}
+            max={60}
+            step={5}
           />
-        ))}
+          {warmupDuration === 0 && (
+            <Text style={styles.hint}>Disabled — session starts immediately with round 1</Text>
+          )}
 
-        {/* ── Add round ── */}
-        <TouchableOpacity style={styles.addRoundBtn} onPress={addRound} activeOpacity={0.8}>
-          <Text style={styles.addRoundText}>+ Add Round</Text>
-        </TouchableOpacity>
+          {/* ── Rounds ── */}
+          <SectionTitle
+            title="Rounds"
+            subtitle={`${rounds.length} round${rounds.length !== 1 ? 's' : ''} configured`}
+          />
 
-        {/* ── Ad placeholder ── */}
-        <View style={styles.adBanner}>
-          <Text style={styles.adText}>Advertisement</Text>
-        </View>
-      </ScrollView>
+          {rounds.map((round, index) => (
+            <RoundCard
+              key={round.id}
+              round={round}
+              index={index}
+              isExpanded={expandedId === round.id}
+              onToggle={() => setExpandedId(expandedId === round.id ? null : round.id)}
+              onUpdate={(key, val) => updateRound(round.id, key, val)}
+              onRemove={() => removeRound(round.id)}
+              onApplyAll={() => applyToAll(round.id)}
+              canRemove={rounds.length > 1}
+            />
+          ))}
+
+          {/* ── Add round ── */}
+          <TouchableOpacity style={styles.addRoundBtn} onPress={addRound} activeOpacity={0.8}>
+            <Text style={styles.addRoundText}>+ Add Round</Text>
+          </TouchableOpacity>
+
+          {/* ── Ad placeholder ── */}
+          <View style={styles.adBanner}>
+            <Text style={styles.adText}>Advertisement</Text>
+          </View>
+        </ScrollView>
+      </ResponsiveContainer>
 
       {/* ── Fixed footer start button ── */}
       <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom + 8, 16) }]}>
@@ -167,7 +219,6 @@ export default function SetupScreen({ navigation }) {
 function RoundCard({ round, index, isExpanded, onToggle, onUpdate, onRemove, onApplyAll, canRemove }) {
   return (
     <View style={styles.roundCard}>
-      {/* ── Collapsed header ── */}
       <TouchableOpacity style={styles.roundHeader} onPress={onToggle} activeOpacity={0.85}>
         <View style={styles.roundBadge}>
           <Text style={styles.roundBadgeNum}>{index + 1}</Text>
@@ -183,11 +234,8 @@ function RoundCard({ round, index, isExpanded, onToggle, onUpdate, onRemove, onA
         <Text style={styles.chevron}>{isExpanded ? '▲' : '▼'}</Text>
       </TouchableOpacity>
 
-      {/* ── Expanded body ── */}
       {isExpanded && (
         <View style={styles.roundBody}>
-
-          {/* ── Optional workout name ── */}
           <View style={styles.nameInputWrap}>
             <Text style={styles.nameInputLabel}>WORKOUT NAME (optional)</Text>
             <TextInput
@@ -222,7 +270,6 @@ function RoundCard({ round, index, isExpanded, onToggle, onUpdate, onRemove, onA
             step={5}
           />
 
-          {/* ── Actions ── */}
           <View style={styles.roundActions}>
             <TouchableOpacity style={styles.actionBtn} onPress={onApplyAll} activeOpacity={0.8}>
               <Text style={styles.actionBtnText}>↗ Apply to all rounds</Text>
@@ -264,251 +311,189 @@ function SummaryPill({ emoji, label }) {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: { flex: 1 },
-  content: { padding: 18, paddingBottom: 10 },
+  safe:    { flex: 1, backgroundColor: COLORS.bg },
+  scroll:  { flex: 1 },
+  content: { padding: 18, paddingBottom: 100 },
 
-  // Top
   topRow: {
-    flexDirection: 'row',
+    flexDirection:  'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
+    alignItems:     'center',
+    marginBottom:   14,
   },
   appTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 20,
-    fontWeight: '600',
+    color:         COLORS.textPrimary,
+    fontSize:      20,
+    fontWeight:    '600',
     letterSpacing: -0.3,
   },
   totalChip: {
-    backgroundColor: COLORS.primaryDim,
-    borderRadius: 10,
+    backgroundColor:  COLORS.primaryDim,
+    borderRadius:     10,
     paddingHorizontal: 12,
-    paddingVertical: 5,
-    alignItems: 'center',
-    borderWidth: 0.5,
-    borderColor: COLORS.primary,
+    paddingVertical:  5,
+    alignItems:       'center',
+    borderWidth:      0.5,
+    borderColor:      COLORS.primary,
   },
-  totalChipLabel: { color: COLORS.primary, fontSize: 8, fontWeight: '700', letterSpacing: 1.5 },
+  totalChipLabel: { color: COLORS.primary, fontSize: 8,  fontWeight: '700', letterSpacing: 1.5 },
   totalChipValue: { color: COLORS.primary, fontSize: 14, fontWeight: '600', letterSpacing: -0.3 },
 
-  // Summary bar
   summaryBar: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 22,
+    flexWrap:      'wrap',
+    gap:           6,
+    marginBottom:  22,
   },
   summaryPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    flexDirection:    'row',
+    alignItems:       'center',
+    backgroundColor:  COLORS.surface,
+    borderRadius:     20,
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 0.5,
-    borderColor: COLORS.border,
-    gap: 4,
+    paddingVertical:  5,
+    borderWidth:      0.5,
+    borderColor:      COLORS.border,
+    gap:              4,
   },
-  summaryEmoji: { fontSize: 12 },
+  summaryEmoji:    { fontSize: 12 },
   summaryPillText: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '500' },
 
-  // Section heading
   sectionRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginBottom: 10,
-    marginTop: 6,
+    alignItems:    'baseline',
+    gap:           8,
+    marginBottom:  10,
+    marginTop:     6,
   },
-  sectionTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.2,
-  },
-  sectionSub: {
-    color: COLORS.textTertiary,
-    fontSize: 11,
-  },
+  sectionTitle: { color: COLORS.textPrimary,   fontSize: 13, fontWeight: '600', letterSpacing: 0.2 },
+  sectionSub:   { color: COLORS.textTertiary,  fontSize: 11 },
   hint: {
-    color: COLORS.textTertiary,
-    fontSize: 11,
-    marginTop: -6,
-    marginBottom: 14,
+    color:            COLORS.textTertiary,
+    fontSize:         11,
+    marginTop:        -6,
+    marginBottom:     14,
     paddingHorizontal: 2,
-    lineHeight: 16,
+    lineHeight:       16,
   },
 
-  // Round card
   roundCard: {
     backgroundColor: COLORS.card,
-    borderRadius: 14,
-    marginBottom: 8,
-    borderWidth: 0.5,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
+    borderRadius:    14,
+    marginBottom:    8,
+    borderWidth:     0.5,
+    borderColor:     COLORS.border,
+    overflow:        'hidden',
   },
   roundHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    gap: 12,
+    alignItems:    'center',
+    padding:       14,
+    gap:           12,
   },
   roundBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width:           32,
+    height:          32,
+    borderRadius:    16,
     backgroundColor: COLORS.primaryDim,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderWidth:     1,
+    borderColor:     COLORS.primary,
+    alignItems:      'center',
+    justifyContent:  'center',
   },
-  roundBadgeNum: {
-    color: COLORS.primary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  roundMeta: { flex: 1 },
-  roundTitle: {
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  roundSummary: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-  },
-  chevron: {
-    color: COLORS.textTertiary,
-    fontSize: 11,
-  },
+  roundBadgeNum: { color: COLORS.primary, fontSize: 13, fontWeight: '700' },
+  roundMeta:     { flex: 1 },
+  roundTitle:    { color: COLORS.textPrimary,   fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  roundSummary:  { color: COLORS.textSecondary, fontSize: 12 },
+  chevron:       { color: COLORS.textTertiary,  fontSize: 11 },
 
-  // Expanded body
   roundBody: {
     paddingHorizontal: 14,
-    paddingBottom: 14,
-    borderTopWidth: 0.5,
-    borderTopColor: COLORS.border,
-    paddingTop: 14,
+    paddingBottom:     14,
+    borderTopWidth:    0.5,
+    borderTopColor:    COLORS.border,
+    paddingTop:        14,
   },
-  roundActions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
+  roundActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
 
-  // ── Workout name input ────────────────────────────────────────────────────
-  nameInputWrap: {
-    marginBottom: 12,
-  },
+  nameInputWrap:  { marginBottom: 12 },
   nameInputLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 10,
-    fontWeight: '600',
+    color:         COLORS.textSecondary,
+    fontSize:      10,
+    fontWeight:    '600',
     letterSpacing: 1.3,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom:  8,
   },
   nameInput: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderColor: COLORS.border,
+    backgroundColor:  COLORS.surface,
+    borderRadius:     10,
+    borderWidth:      0.5,
+    borderColor:      COLORS.border,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: COLORS.textPrimary,
-    fontSize: 14,
-    fontWeight: '400',
+    paddingVertical:  12,
+    color:            COLORS.textPrimary,
+    fontSize:         14,
+    fontWeight:       '400',
   },
   nameInputCount: {
-    color: COLORS.textTertiary,
-    fontSize: 10,
+    color:     COLORS.textTertiary,
+    fontSize:  10,
     textAlign: 'right',
     marginTop: 4,
   },
+
   actionBtn: {
-    flex: 1,
-    paddingVertical: 9,
-    borderRadius: 9,
-    backgroundColor: COLORS.surface,
-    borderWidth: 0.5,
-    borderColor: COLORS.border,
-    alignItems: 'center',
+    flex:             1,
+    paddingVertical:  9,
+    borderRadius:     9,
+    backgroundColor:  COLORS.surface,
+    borderWidth:      0.5,
+    borderColor:      COLORS.border,
+    alignItems:       'center',
   },
-  actionBtnText: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  actionBtnDanger: {
-    borderColor: 'rgba(230,57,70,0.35)',
-    backgroundColor: 'rgba(230,57,70,0.07)',
-  },
-  actionBtnDangerText: {
-    color: COLORS.primary,
-    fontSize: 12,
-    fontWeight: '500',
-  },
+  actionBtnText:      { color: COLORS.textSecondary, fontSize: 12, fontWeight: '500' },
+  actionBtnDanger:    { borderColor: 'rgba(230,57,70,0.35)', backgroundColor: 'rgba(230,57,70,0.07)' },
+  actionBtnDangerText:{ color: COLORS.primary, fontSize: 12, fontWeight: '500' },
 
-  // Add round
   addRoundBtn: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: COLORS.borderLight,
+    borderRadius:    12,
+    borderWidth:     1,
+    borderStyle:     'dashed',
+    borderColor:     COLORS.borderLight,
     paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 16,
+    alignItems:      'center',
+    marginBottom:    16,
   },
-  addRoundText: {
-    color: COLORS.textSecondary,
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: 0.3,
-  },
+  addRoundText: { color: COLORS.textSecondary, fontSize: 14, fontWeight: '500', letterSpacing: 0.3 },
 
-  // Ad
   adBanner: {
-    height: 50,
+    height:          50,
     backgroundColor: COLORS.surface,
-    borderRadius: 10,
-    borderWidth: 0.5,
-    borderStyle: 'dashed',
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
+    borderRadius:    10,
+    borderWidth:     0.5,
+    borderStyle:     'dashed',
+    borderColor:     COLORS.border,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    6,
   },
   adText: { color: COLORS.textTertiary, fontSize: 11, letterSpacing: 1 },
 
-  // Footer
   footer: {
     paddingHorizontal: 16,
-    paddingTop: 16,
-    backgroundColor: COLORS.bg,
-    borderTopWidth: 0.5,
-    borderTopColor: COLORS.border,
+    paddingTop:        16,
+    paddingBottom:     16,
+    backgroundColor:   COLORS.bg,
+    borderTopWidth:    0.5,
+    borderTopColor:    COLORS.border,
   },
   startBtn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 16,
+    borderRadius:    16,
     paddingVertical: 15,
-    alignItems: 'center',
+    alignItems:      'center',
   },
-  startBtnLabel: {
-    color: '#28305E',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 2,
-  },
-  startBtnSub: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 11,
-    marginTop: 3,
-    letterSpacing: 0.4,
-  },
+  startBtnLabel: { color: '#28305E', fontSize: 15, fontWeight: '700', letterSpacing: 2 },
+  startBtnSub:   { color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 3, letterSpacing: 0.4 },
 });
