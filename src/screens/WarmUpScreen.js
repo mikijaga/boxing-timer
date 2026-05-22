@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  SafeAreaView, StatusBar, useWindowDimensions, ScrollView,
+  StatusBar, useWindowDimensions, ScrollView,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import ProgressRing from '../components/ProgressRing';
@@ -160,9 +160,16 @@ export default function WarmUpScreen() {
   // ── Landscape ──────────────────────────────────────────────────────────────
   if (isLandscape) {
     return (
-      <SafeAreaView style={s.safe}>
+      <SafeAreaView style={s.safe} edges={['top']}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <View style={[s.landscapeContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+        <View style={[
+          s.landscapeContainer,
+          {
+            paddingBottom: Math.max(insets.bottom, 16),
+            // Add right inset so content clears Samsung's side nav buttons
+            paddingRight: Math.max(insets.right + 16, 16),
+          },
+        ]}>
           <View style={s.landscapeLeft}>
             <ProgressRing size={ringSize} strokeWidth={8} progress={progress} color={ringColor} trackColor={COLORS.surface}>
               {ringContent}
@@ -189,30 +196,30 @@ export default function WarmUpScreen() {
 
   // ── Portrait ───────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={s.safe}>
+    <SafeAreaView style={s.safe} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
       <ResponsiveContainer>
-      <ScrollView
-        contentContainerStyle={[s.portraitContent, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={s.heading}>Warm-up Timer</Text>
-        <Text style={s.subheading}>{isRunning ? 'Get your blood pumping 🔥' : 'Max 60 seconds'}</Text>
-        <View style={s.ringArea}>
-          <ProgressRing size={ringSize} strokeWidth={10} progress={progress} color={ringColor} trackColor={COLORS.surface}>
-            {ringContent}
-          </ProgressRing>
-        </View>
-        {!isRunning && !isDone && (
-          <TimeControl label="DURATION (max 60s)" value={duration} onChange={handleDurationChange} min={0} max={60} step={5} />
-        )}
-        {soundBadge}
-        {actionButton}
-        {duration === 0 && !isRunning && (
-          <Text style={s.hint}>Set a duration above to enable the warm-up timer</Text>
-        )}
-        <AdBanner />
-      </ScrollView>
+        <ScrollView
+          contentContainerStyle={[s.portraitContent, { paddingBottom: Math.max(insets.bottom + 16, 24) }]}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={s.heading}>Warm-up Timer</Text>
+          <Text style={s.subheading}>{isRunning ? 'Get your blood pumping 🔥' : 'Max 60 seconds'}</Text>
+          <View style={s.ringArea}>
+            <ProgressRing size={ringSize} strokeWidth={10} progress={progress} color={ringColor} trackColor={COLORS.surface}>
+              {ringContent}
+            </ProgressRing>
+          </View>
+          {!isRunning && !isDone && (
+            <TimeControl label="DURATION (max 60s)" value={duration} onChange={handleDurationChange} min={0} max={60} step={5} />
+          )}
+          {soundBadge}
+          {actionButton}
+          {duration === 0 && !isRunning && (
+            <Text style={s.hint}>Set a duration above to enable the warm-up timer</Text>
+          )}
+          <AdBanner />
+        </ScrollView>
       </ResponsiveContainer>
     </SafeAreaView>
   );
@@ -232,14 +239,14 @@ const s = StyleSheet.create({
   doneEmoji:       { fontSize: 32, marginBottom: 4 },
   doneLabel:       { fontSize: 15, fontWeight: '700', letterSpacing: 3 },
   soundBadge: {
-    backgroundColor: COLORS.surface,
-    borderRadius: 20,
+    backgroundColor:   COLORS.surface,
+    borderRadius:      20,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 0.5,
-    borderColor: COLORS.border,
-    marginBottom: 14,
-    alignSelf: 'center',
+    paddingVertical:   6,
+    borderWidth:       0.5,
+    borderColor:       COLORS.border,
+    marginBottom:      14,
+    alignSelf:         'center',
   },
   soundBadgeText: { color: COLORS.textSecondary, fontSize: 10, letterSpacing: 0.3, textAlign: 'center' },
   btn:          { width: '100%', borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginBottom: 10 },
@@ -251,7 +258,7 @@ const s = StyleSheet.create({
   resetBtn:     { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.success },
   resetBtnText: { color: COLORS.success, fontSize: 14, fontWeight: '700', letterSpacing: 2 },
   hint:         { color: COLORS.textTertiary, fontSize: 11, textAlign: 'center', marginBottom: 12 },
-  landscapeContainer:    { flex: 1, flexDirection: 'row', paddingHorizontal: 16, paddingTop: 12, gap: 16 },
+  landscapeContainer:    { flex: 1, flexDirection: 'row', paddingLeft: 16, paddingTop: 12, gap: 16 },
   landscapeLeft:         { flex: 1, alignItems: 'center', justifyContent: 'center' },
   landscapeRight:        { flex: 1.2 },
   landscapeRightContent: { paddingTop: 10, justifyContent: 'flex-start' },

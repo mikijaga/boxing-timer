@@ -15,7 +15,7 @@ import {
   StatusBar,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { loadHistory, deleteSession, clearHistory } from '../utils/HistoryManager';
 import { formatDuration } from '../utils/format';
@@ -39,6 +39,7 @@ function formatTimestamp(isoString) {
 
 // ─── Elapsed seconds → human string e.g. "11m 20s" ──────────────────────────
 function formatElapsedShort(secs) {
+  secs = Math.round(secs);   // guard against floating point e.g. 45.382...
   if (secs < 60) return `${secs}s`;
   const m = Math.floor(secs / 60);
   const s = secs % 60;
@@ -132,6 +133,7 @@ function StatChip({ emoji, label }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function HistoryScreen({ navigation }) {
   const [history, setHistory] = useState([]);
+  const insets = useSafeAreaInsets();
 
   // Reload history every time the tab comes into focus
   useFocusEffect(
@@ -176,11 +178,11 @@ export default function HistoryScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingRight: Math.max(insets.right + 18, 18) }]}>
         <Text style={styles.headerTitle}>🕐 History</Text>
         {history.length > 0 && (
           <TouchableOpacity onPress={handleClearAll} activeOpacity={0.7}>
@@ -200,7 +202,7 @@ export default function HistoryScreen({ navigation }) {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingRight: Math.max(insets.right + 16, 16) }]}
           showsVerticalScrollIndicator={false}
         >
           {history.map(session => (

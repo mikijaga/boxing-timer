@@ -268,7 +268,7 @@ export default function TimerScreen({ navigation, route }) {
             {roundDots}
             {nextRow}
             {controlBtn}
-            {adSlot}
+            <View style={{ marginTop: 10 }}>{adSlot}</View>
           </View>
 
         </View>
