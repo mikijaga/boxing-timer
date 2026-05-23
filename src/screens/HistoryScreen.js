@@ -174,6 +174,7 @@ export default function HistoryScreen({ navigation }) {
     navigation.navigate('Timer', {
       roundConfigs:   session.roundConfigs,
       warmupDuration: session.warmupDuration,
+      sourceId:       session.id,   // tells TimerScreen this is a repeat
     });
   };
 

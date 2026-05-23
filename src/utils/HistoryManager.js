@@ -12,11 +12,22 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const HISTORY_KEY = 'roundmaster_session_history';
 
-/** Save a completed session to the front of the history list */
-export async function saveSession(session) {
+/**
+ * Save a new session, OR if sourceId is provided (i.e. it's a repeated
+ * session), remove the original entry and put the new one at the top.
+ * This prevents duplicates when the user repeats a past session.
+ */
+export async function saveSession(session, sourceId = null) {
   try {
-    const existing = await loadHistory();
-    const updated  = [session, ...existing];   // newest first
+    let existing = await loadHistory();
+
+    // If this is a repeat, remove the original entry first
+    if (sourceId) {
+      existing = existing.filter(s => s.id !== sourceId);
+    }
+
+    // Add the new/updated session at the top (newest first)
+    const updated = [session, ...existing];
     await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
   } catch (e) {
     console.warn('HistoryManager: failed to save session', e);

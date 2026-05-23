@@ -45,7 +45,7 @@ const PHASE_DIM = {
 };
 
 export default function TimerScreen({ navigation, route }) {
-  const { roundConfigs, warmupDuration } = route.params;
+  const { roundConfigs, warmupDuration, sourceId = null } = route.params;
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
   const insets = useSafeAreaInsets();
@@ -84,7 +84,7 @@ export default function TimerScreen({ navigation, route }) {
         warmupDuration,
         elapsedTotal,
         roundConfigs,
-      });
+      }, sourceId);  // sourceId removes the original entry if this is a repeat
     }
   }, [phase]);
 
